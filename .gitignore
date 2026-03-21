@@ -1,0 +1,7 @@
+# Python/Conda environments (at any depth)
+**/.venv/
+**/conda/
+**/.conda/
+
+# VS Code settings (at any depth)
+**/.vscode/
