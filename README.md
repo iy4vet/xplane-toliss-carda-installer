@@ -1,6 +1,6 @@
 # Carda Engine Mod Installer for ToLiss A319 / A321
 
-Installer for the [Carda engine mods](https://forum.thresholdx.net/profile/3927-cardajowol/) on the ToLiss A319 and A321 (CEO and NEO) in X-Plane. Handles all `.acf` and `.obj` edits so you don't have to do them by hand.
+Installer script for the [Carda engine mods](https://forum.thresholdx.net/profile/3927-cardajowol/) on the ToLiss A319 and A321 (CEO and NEO) in X-Plane. Handles all `.acf` and `.obj` edits so you don't have to do them by hand.
 
 ## What the installer does
 
@@ -22,7 +22,7 @@ Download **all four** engine packs from Threshold:
 | Engine | Link |
 | ------ | ---- |
 | CFM LEAP-1A | https://forum.thresholdx.net/files/file/620-cfm-leap-1a-engine-mod/ |
-| Pratt & Whitney PW1100G | https://forum.thresholdx.net/files/file/652-pratt-whitney-1100-g-engine-mod/ |
+| PW1100G | https://forum.thresholdx.net/files/file/652-pratt-whitney-1100-g-engine-mod/ |
 | CFM56-5B/5A | https://forum.thresholdx.net/files/file/1827-cfm56-5b5a-engine-mod-for-ff320-toliss-a319a321/ |
 | IAE V2500 | https://forum.thresholdx.net/files/file/1194-iae-v2500-engine-mod-for-ff320-toliss-a319a321/ |
 
@@ -105,7 +105,12 @@ Use `install_carda_a319.py` for the A319 and `install_carda_a321.py` for the A32
 
 ---
 
-## Credits
-
+## Credits and Licensing
+This project is licensed under the GNU GPL v2.
+<br>
+Any contributions (features or bugfixes) are very welcome :grin:. [Here's the project GitHub](https://github.com/iy4vet/xplane-toliss-carda-installer).\
+Feel free to message me on Discord - my username is `iy4vet`. I'm also present in the X-Plane Community and Official servers.\
+<br>
+A huge thank-you to these awesome people:
 - **[Carda (Threshold Forums)](https://forum.thresholdx.net/profile/3927-cardajowol/)** - original engine mod models and textures.
 - **[Chris E (Org Forums)](https://forums.x-plane.org/profile/640915-chris-e/)** - dataref fixes for ToLiss compatibility (original [A321 fix](https://forums.x-plane.org/files/file/89257-carda-engines-mod-fix-for-toliss-a321/) and [A319 fix](https://forums.x-plane.org/files/file/93205-carda-engines-mod-fix-for-toliss-a319/)). With their permission, I've included their fixes in this script. They were: correcting N1 speed and fan rotation datarefs from stock X-Plane paths to the AirbusFBW equivalents used by ToLiss, and fixing the LEAP blade rotation axis direction.
