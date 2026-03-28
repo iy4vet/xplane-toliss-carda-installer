@@ -63,6 +63,8 @@ Repeat for all four engine packs (LEAP-1A, PW1100G, CFM56, V2500).
 
 ### Option A: Pre-built binary (no Python needed)
 
+Download the binary for your OS from the [Releases](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/) page:
+
 | Platform | A319 | A321 |
 | -------- | ---- | ---- |
 | Windows x64 | [`install-carda-a319-windows-x64.exe`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-a319-windows-x64.exe) | [`install-carda-a321-windows-x64.exe`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-a321-windows-x64.exe) |
