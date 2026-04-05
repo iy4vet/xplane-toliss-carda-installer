@@ -517,12 +517,44 @@ def main():
         default=Path.cwd(),
         help="Path to the ToLiss A321 aircraft folder (default: current directory)",
     )
+    parser.add_argument(
+        "--engines",
+        type=int,
+        choices=[1, 2],
+        default=None,
+        help="Engine selection: 1=CFM+IAE only, 2=All (skips interactive prompt)",
+    )
     args = parser.parse_args()
     aircraft_dir: Path = args.aircraft_dir.resolve()
 
     print("=" * 60)
-    print(" Minimal Carda Engine Mod - ACF/OBJ Editor")
+    print(" Carda Engine Mod - ACF/OBJ Editor (A321) v1.1r1")
     print("=" * 60)
+
+    # ── Engine family selection ──
+    if args.engines is not None:
+        selection = args.engines
+    else:
+        print("\nWhich engines do you want to install?")
+        print("  1 - CFM56 + IAE only  (CEO)")
+        print("  2 - All engines       (CEO + NEO)")
+        while True:
+            raw = input("\nEnter 1 or 2: ").strip()
+            if raw in ("1", "2"):
+                selection = int(raw)
+                break
+            print("  Invalid choice. Please enter 1 or 2.")
+
+    if selection == 1:
+        label = "CFM56 + IAE only (CEO)"
+        active_engine_objs = [p for p in CARDA_ENGINE_OBJS if not p.startswith(("LEAP", "PW"))]
+        active_carda_objects = [o for o in ALL_CARDA_OBJECTS if not o.file_stl.startswith(("LEAP", "PW"))]
+    else:
+        label = "All engines (CEO + NEO)"
+        active_engine_objs = CARDA_ENGINE_OBJS
+        active_carda_objects = ALL_CARDA_OBJECTS
+
+    print(f"\nEngine selection: {label}")
 
     # Validate: must contain *.acf files
     acf_files = sorted(aircraft_dir.glob("*.acf"))
@@ -552,7 +584,7 @@ def main():
 
         # ── Step 2: Carda engine OBJ fixes ──
         print("\n── Carda Engine OBJ Fixes ─────────────────────────────────")
-        for rel_path in CARDA_ENGINE_OBJS:
+        for rel_path in active_engine_objs:
             obj_path = obj_dir / rel_path
             if not obj_path.exists():
                 print(f"  {rel_path}: Not found (skipped)")
@@ -568,24 +600,30 @@ def main():
     # ── Step 3: ACF edits ──
     print("\n── ACF File Editing ───────────────────────────────────────")
 
-    carda_filenames = [obj.file_stl for obj in ALL_CARDA_OBJECTS]
+    # Always purge all known Carda filenames so switching between options
+    # on a re-run doesn't leave stale objects from a previous install.
+    all_carda_filenames = [obj.file_stl for obj in ALL_CARDA_OBJECTS]
+    active_carda_filenames = {o.file_stl for o in active_carda_objects}
 
     for acf_path in acf_files:
         print(f"\n  {acf_path.name}:")
         editor = ACFEditor(acf_path)
 
         removed, _already = editor.remove_and_add_objects(
-            filenames_to_remove=STOCK_OBJECTS_TO_REMOVE + carda_filenames,
-            objects_to_add=ALL_CARDA_OBJECTS,
+            filenames_to_remove=STOCK_OBJECTS_TO_REMOVE + all_carda_filenames,
+            objects_to_add=active_carda_objects,
         )
         stock_removed = [n for n in removed if n in STOCK_OBJECTS_TO_REMOVE]
-        carda_refreshed = [n for n in removed if n not in STOCK_OBJECTS_TO_REMOVE]
+        carda_refreshed = [n for n in removed if n in active_carda_filenames]
+        stale_removed = [n for n in removed if n in all_carda_filenames and n not in active_carda_filenames]
         if stock_removed:
             print(f"    Removed stock: {', '.join(stock_removed)}")
+        if stale_removed:
+            print(f"    Cleaned up {len(stale_removed)} stale object(s) from previous install")
         if carda_refreshed:
             print(f"    Refreshed {len(carda_refreshed)} existing Carda object(s)")
         else:
-            print(f"    Added {len(ALL_CARDA_OBJECTS)} Carda object(s)")
+            print(f"    Added {len(active_carda_objects)} Carda object(s)")
         print(f"    Total object count: {editor.get_obja_count()}")
         editor.save(backup=True)
         print(f"    Saved (backup: {acf_path.name}.bak)")

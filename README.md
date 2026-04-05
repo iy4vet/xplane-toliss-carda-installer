@@ -1,4 +1,4 @@
-# Carda Engine Mod Installer for ToLiss A319 / A321 v1.0r1
+# Carda Engine Mod Installer for ToLiss A319 / A321 v1.1r1
 
 Installer script for the [Carda engine mods](https://forum.thresholdx.net/profile/3927-cardajowol/) on the ToLiss A319 and A321 (CEO and NEO) in X-Plane. Handles all `.acf` and `.obj` edits so you don't have to do them by hand.
 
@@ -17,7 +17,7 @@ Backups (`.bak`) are created automatically before any file is modified.
 
 ## Step 1 - Download the Carda engine mods
 
-Download all four engine packs from the Threshold Forums:
+Download the engine mods from the Threshold Forums:
 
 | Engine | Link |
 | ------ | ---- |
@@ -43,7 +43,7 @@ IAE-V2500-Toliss321-1.1/
 
 ## Step 2 - Copy engine files into the aircraft folder
 
-For each of the four extracted mods:
+For each of the extracted mods:
 
 1. Open the mod's **base folder** (e.g. `A321 Base Folder/` or `A319 Base Folder/`).
 2. Copy (merge) the `objects/` folder inside it into your ToLiss aircraft directory so the engine subfolders end up at:
@@ -114,17 +114,19 @@ A huge thank-you to these awesome people:
 
 - [Carda (Threshold Forums)](https://forum.thresholdx.net/profile/3927-cardajowol/) - original engine mod models and textures.
 - [@Chris E](https://forums.x-plane.org/profile/640915-chris-e/) - dataref fixes for ToLiss compatibility (original [A321 fix](https://forums.x-plane.org/files/file/89257-carda-engines-mod-fix-for-toliss-a321/) and [A319 fix](https://forums.x-plane.org/files/file/93205-carda-engines-mod-fix-for-toliss-a319/)). With their permission, I've included their fixes in this script. They were: correcting N1 speed and fan rotation datarefs from stock X-Plane paths to the AirbusFBW equivalents used by ToLiss, and fixing the LEAP blade rotation axis direction.
+- [alexvor20](https://github.com/alexvor20) - CEO-only install option.
 
 ## Changelog
 
-- **1.0r1** - Initial release.
+- **1.1r1** - Add: CEO-only install option
+- **1.0r1** - Initial release
 
-## What's planned
+## What's Planned
 
-The most obvious one - the [A320neo](https://store.x-plane.org/Airbus-A320-Neo-by-Toliss-XP12-and-XP11_p_1717.html) and [A320ceo add-on](https://store.x-plane.org/A320-Ceo-ADD-ON-to-the-ToLiss-Airbus-A320_p_2091.html). There's a good chance the A319 script works for the A320, but I can't test it myself.
+The most obvious one - the [A320neo](https://toliss.com/pages/a320-neo) and [A320ceo](https://toliss.com/pages/a320-ceo). There's a good chance the A319 version works for the A320, but I can't test it myself.
 
-I'd like to also develop scripts for the [A340-600](https://store.x-plane.org/Airbus-A340-600-by-Toliss_p_1459.html) and [A330-900 neo](https://store.x-plane.org/Airbus-A330-900-neo%C2%A0by%C2%A0ToLiss_p_1952.html) in the future!
+I'd like to also develop scripts for the [A340-600](https://toliss.com/pages/a340-600) and [A330-900 neo](https://toliss.com/pages/a330-900) in the future.
 
-Doing non-ToLiss Aircraft is also in the cards :grin:.
+Doing non-ToLiss Aircraft is also in the cards! :grin:
 
 If there's anything you'd like to see added, send me a message or create a pull request on GitHub!
