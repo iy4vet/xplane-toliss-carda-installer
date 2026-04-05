@@ -566,7 +566,7 @@ def main():
     aircraft_dir: Path = args.aircraft_dir.resolve()
 
     print("=" * 60)
-    print(" Carda Engine Mod - ACF/OBJ Editor (A319)")
+    print(" Carda Engine Mod - ACF/OBJ Editor (A319) v1.1r1")
     print("=" * 60)
 
       # ── Engine family selection ──
@@ -641,6 +641,7 @@ def main():
     # Always purge all known Carda filenames so switching between options
     # on a re-run doesn't leave stale objects from a previous install.
     all_carda_filenames = [obj.file_stl for obj in ALL_CARDA_OBJECTS]
+    active_carda_filenames = {o.file_stl for o in active_carda_objects}
 
     for acf_path in acf_files:
         print(f"\n  {acf_path.name}:")
@@ -651,9 +652,12 @@ def main():
             objects_to_add=active_carda_objects,
         )
         stock_removed = [n for n in removed if n in STOCK_OBJECTS_TO_REMOVE]
-        carda_refreshed = [n for n in removed if n in [o.file_stl for o in active_carda_objects]] # ── corrrecting the counter
+        carda_refreshed = [n for n in removed if n in active_carda_filenames]  # correcting the counter
+        stale_removed = [n for n in removed if n in all_carda_filenames and n not in active_carda_filenames]
         if stock_removed:
             print(f"    Removed stock: {', '.join(stock_removed)}")
+        if stale_removed:
+            print(f"    Cleaned up {len(stale_removed)} stale object(s) from previous install")
         if carda_refreshed:
             print(f"    Refreshed {len(carda_refreshed)} existing Carda object(s)")
         else:
