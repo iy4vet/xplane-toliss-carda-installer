@@ -1,7 +1,15 @@
-# Python/Conda environments (at any depth)
+# Python cache
+**/__pycache__/
+
+# Python/Conda environments
 **/.venv/
 **/conda/
 **/.conda/
 
-# VS Code settings (at any depth)
+# VS Code settings
 **/.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
