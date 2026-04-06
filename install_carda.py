@@ -1,18 +1,37 @@
 #!/usr/bin/env python3
 """
-Carda Engine Mod ACF/OBJ Editor for ToLiss A319
-===============================================
+Carda Engine Mod ACF/OBJ Editor for ToLiss A319 / A320 / A321
+==============================================================
 
-An installer script that edits .acf and .obj files to install Carda Mod.
-Run from the same folder as the *.acf files - i.e. the ToLiss A319
-aircraft root folder.
+A unified installer script that edits .acf and .obj files to install
+the Carda engine mods on any of the three ToLiss Airbus narrowbodies.
+Run from the same folder as the *.acf files - i.e. the ToLiss aircraft
+root folder.
+
+NOTE: The correct Carda mod variants for each ToLiss aircraft:
+        - ToLiss A319 (ceo only): CFM56-5A or 5B (user's choice; 5A is
+                                  A319-specific lower-thrust variant, 5B is
+                                  shared with A320/A321), IAE-319,
+                                  LEAP-A319, PW-A319
+        - ToLiss A321 (ceo+neo):  CFM56-5B-321, IAE-321, LEAP-A321, PW-A321
+        - ToLiss A320 (neo+ceo):  CFM56-5B-321, IAE-321, LEAP-A319/A321,
+                                  PW-A319/A321
+      The A321 variants of CFM56-5B and IAE have additional internal
+      ANIM_hide blocks for CFM/IAE switching needed on ceo+neo aircraft
+      (A321 and A320). The A319 variants lack these blocks.
+
+      The FF A320 variants are for a different aircraft entirely.
+
+      There are no dedicated ToLiss A320 Carda mod files. The installer
+      uses the ToLiss A321 Carda mod files as the A320 and A321 are
+      structurally identical in terms of engine objs and datarefs.
 
 What it does:
   1. Edits engines.obj & blades.obj in objects/ to neutralise stock
      ANIM_hide directives (anim/CFM and anim/IAE → none).
   2. Applies Toliss Carda Fix dataref patches to the Carda engine OBJ
      files: rewrites N1 speed datarefs from stock X-Plane paths to
-     AirbusFBW equivalents; for LEAP/PW NEO engines, also rewrites
+     AirbusFBW equivalents; for LEAP/PW neo engines, also rewrites
      fan-rotation datarefs; and corrects the LEAP blade rotation axis
      direction.
   3. Edits ALL *.acf files: removes stock engine objects and adds the
@@ -24,12 +43,15 @@ What it does NOT do:
   - Copy livery-specific engine textures.
 
 Usage:
-    cd "Airbus A319 (ToLiss)"
-    python ../install_carda_a319.py
-    # or:
-    python install_carda_a319.py --aircraft-dir "/path/to/Airbus A319 (ToLiss)"
+    # Interactive (prompts for aircraft and engine selection):
+    python install_carda.py --aircraft-dir "/path/to/Airbus A321 (ToLiss)"
+
+    # Fully non-interactive:
+    python install_carda.py --aircraft a321 --engines 2 \\
+        --aircraft-dir "/path/to/Airbus A321 (ToLiss)"
 """
 
+import abc
 import argparse
 import re
 import shutil
@@ -45,17 +67,10 @@ FLAGS_NONE = 0
 FLAGS_PREFILL = 4
 FLAGS_ALL_VIEWS_HIRES = 24
 
-# Stock objects that may need to be removed from the ACF.
-# The A319 CEO has engines.obj and blades.obj; no stock NEO objects.
-STOCK_OBJECTS_TO_REMOVE = [
-    "engines.obj",
-    "blades.obj",
-]
-
 # Carda engine OBJ files (relative to objects/) that need Toliss dataref fixes.
 #
-# CEO engines (CFM56-5B, IAE V2500): N1 speed dataref only.
-# NEO engines (LEAP, PW): N1 speed + fan rotation datarefs.
+# ceo engines (CFM56-5B, IAE V2500): N1 speed dataref only.
+# neo engines (LEAP, PW): N1 speed + fan rotation datarefs.
 CARDA_ENGINE_OBJS = [
     "CFM56/cfm56_l_engine.obj",
     "CFM56/cfm56_r_engine.obj",
@@ -103,172 +118,327 @@ class ACFObject:
     steers_with_gear: int = 0
 
 
-# ─── Engine Definitions ──────────────────────────────────────────────────────
+# ─── Aircraft Configuration ──────────────────────────────────────────────────
 #
-# Coordinates from the Carda installation manuals (read with pdftotext -layout):
+# Each ToLiss aircraft variant has slightly different stock objects, kill-
+# dataref assignments, and engine-selection prompts.  The base class defines
+# the interface; subclasses supply the data with clear explanations.
 #
-#   CEO engines (CFM56/IAE):
+# Coordinates (shared across all variants):
+#
+#   ceo engines (CFM56/IAE):
 #       LONG. 020.70   LAT. 000.00   VERT. 000.40
 #       → ACF: x=0.0, y=0.4, z=20.7
 #       Particles at origin (0, 0, 0).
 #
-#   NEO engines (LEAP/PW):
+#   neo engines (LEAP/PW):
 #       Left engine:   LONG. 041.70   LAT. -019.00   VERT. -006.60
 #       Right engine:  LONG. 041.70   LAT.  019.00   VERT. -006.60
 #       → ACF: x=LAT, y=VERT, z=LONG
 #         L: x=-19.0, y=-6.6, z=41.7    R: x=19.0, y=-6.6, z=41.7
 #       Particles at origin (0, 0, 0).
 #
-# Kill datarefs:
-#   CFM56:  anim/IAE      (hidden when IAE variant is active)
-#   IAE:    anim/CFM      (hidden when CFM variant is active)
-#   LEAP:   anim/LEAP/kill
-#   PW:     anim/NEO/kill
-#
 # Shadow modes per the manuals:
 #   L/R engine OBJs → "All Views" + High Res  (flags=24)
 #   N1 / Particles  → "Prefill"               (flags=4)
-#   NEO Particles   → none                    (flags=0)
+#   neo particles   → none                    (flags=0)
 
 
-def _build_all_carda_objects() -> list[ACFObject]:
-    """Return the full list of Carda engine objects for a combined install."""
+class AircraftConfig(abc.ABC):
+    """Base class defining the per-aircraft differences for the installer."""
 
-    # CFM56-5B (CEO) - kill=anim/IAE, pos=(0, 0.4, 20.7)
-    cfm = [
-        ACFObject(
-            "CFM56/cfm56_l_engine.obj",
-            FLAGS_ALL_VIEWS_HIRES,
-            "anim/IAE",
-            0.0,
-            0.4,
-            20.7,
-        ),
-        ACFObject(
-            "CFM56/cfm56_r_engine.obj",
-            FLAGS_ALL_VIEWS_HIRES,
-            "anim/IAE",
-            0.0,
-            0.4,
-            20.7,
-        ),
-        ACFObject("CFM56/cfm56_n1.obj", FLAGS_PREFILL, "anim/IAE", 0.0, 0.4, 20.7),
-        # CFM-Particles.obj intentionally omitted (IAE particles used for combined install)
-    ]
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        """Short display name, e.g. 'A319'."""
 
-    # IAE V2500 (CEO) - kill=anim/CFM, pos=(0, 0.4, 20.7)
-    iae = [
-        ACFObject(
-            "V2500/iae_l_engine.obj",
-            FLAGS_ALL_VIEWS_HIRES,
-            "anim/CFM",
-            0.0,
-            0.4,
-            20.7,
-        ),
-        ACFObject(
-            "V2500/iae_r_engine.obj",
-            FLAGS_ALL_VIEWS_HIRES,
-            "anim/CFM",
-            0.0,
-            0.4,
-            20.7,
-        ),
-        ACFObject("V2500/iae_n1.obj", FLAGS_PREFILL, "anim/CFM", 0.0, 0.4, 20.7),
-        ACFObject(
-            "V2500/particles/IAE-Particles.obj",
-            FLAGS_PREFILL,
-            "anim/CFM",
-            0.0,
-            0.0,
-            0.0,
-        ),
-    ]
+    @property
+    @abc.abstractmethod
+    def stock_objects_to_remove(self) -> list[str]:
+        """Stock OBJ filenames to strip from ACF files before adding Carda objects."""
 
-    # LEAP-1A (NEO) - kill=anim/LEAP/kill
-    # Manual: LONG=41.70 LAT=-19.00 VERT=-6.60 → ACF: x=LAT, y=VERT, z=LONG
-    #   L: x=-19.0, y=-6.6, z=41.7    R: x=19.0, y=-6.6, z=41.7
-    leap = [
-        ACFObject(
-            "LEAP Engines/particles/LEAP-Particles.obj",
-            FLAGS_NONE,
-            "anim/LEAP/kill",
-            0.0,
-            0.0,
-            0.0,
-        ),
-        ACFObject(
-            "LEAP Engines/LEAP_L_Engine.obj",
-            FLAGS_ALL_VIEWS_HIRES,
-            "anim/LEAP/kill",
-            -19.0,
-            -6.6,
-            41.7,
-        ),
-        ACFObject(
-            "LEAP Engines/LEAP_N1_L.obj",
-            FLAGS_PREFILL,
-            "anim/LEAP/kill",
-            -19.0,
-            -6.6,
-            41.7,
-        ),
-        ACFObject(
-            "LEAP Engines/LEAP_R_Engine.obj",
-            FLAGS_ALL_VIEWS_HIRES,
-            "anim/LEAP/kill",
-            19.0,
-            -6.6,
-            41.7,
-        ),
-        ACFObject(
-            "LEAP Engines/LEAP_N1_R.obj",
-            FLAGS_PREFILL,
-            "anim/LEAP/kill",
-            19.0,
-            -6.6,
-            41.7,
-        ),
-    ]
+    @property
+    @abc.abstractmethod
+    def option1_label(self) -> str:
+        """Prompt label for engine selection option 1 (the partial install)."""
 
-    # PW1100G (NEO) - kill=anim/NEO/kill, same positions as LEAP
-    pw = [
-        ACFObject(
-            "PW Engines/particles/PW-Particles.obj",
-            FLAGS_NONE,
-            "anim/NEO/kill",
-            0.0,
-            0.0,
-            0.0,
-        ),
-        ACFObject(
-            "PW Engines/PW_L_Engine.obj",
-            FLAGS_ALL_VIEWS_HIRES,
-            "anim/NEO/kill",
-            -19.0,
-            -6.6,
-            41.7,
-        ),
-        ACFObject(
-            "PW Engines/PW_N1_L.obj", FLAGS_PREFILL, "anim/NEO/kill", -19.0, -6.6, 41.7
-        ),
-        ACFObject(
-            "PW Engines/PW_R_Engine.obj",
-            FLAGS_ALL_VIEWS_HIRES,
-            "anim/NEO/kill",
-            19.0,
-            -6.6,
-            41.7,
-        ),
-        ACFObject(
-            "PW Engines/PW_N1_R.obj", FLAGS_PREFILL, "anim/NEO/kill", 19.0, -6.6, 41.7
-        ),
-    ]
+    @property
+    @abc.abstractmethod
+    def option2_label(self) -> str:
+        """Prompt label for engine selection option 2 (the full install)."""
 
-    return cfm + iae + leap + pw
+    @abc.abstractmethod
+    def build_all_carda_objects(self) -> list[ACFObject]:
+        """Return the full list of Carda engine ACF objects for this aircraft.
+
+        Kill datarefs differ between aircraft - see each subclass docstring.
+        """
+
+    @abc.abstractmethod
+    def filter_option1(
+        self,
+        all_objects: list[ACFObject],
+        all_engine_objs: list[str],
+    ) -> tuple[list[ACFObject], list[str]]:
+        """Return the subset of objects and engine OBJ paths for option 1."""
+
+    def filter_option2(
+        self,
+        all_objects: list[ACFObject],
+        all_engine_objs: list[str],
+    ) -> tuple[list[ACFObject], list[str]]:
+        """Return everything (option 2 is always the full install)."""
+        return all_objects, all_engine_objs
 
 
-ALL_CARDA_OBJECTS = _build_all_carda_objects()
+class A319Config(AircraftConfig):
+    """Configuration for the ToLiss A319.
+
+    The A319 is ceo-only in its stock configuration.  It has no neo stock
+    objects (neo.obj, LEAP1A.obj, leapfast.obj), so only engines.obj and
+    blades.obj need to be removed.
+
+    Kill datarefs use mutual-exclusion logic unique to the A319:
+      - CFM56 objects use kill=anim/IAE  (hidden when IAE is active)
+      - IAE   objects use kill=anim/CFM  (hidden when CFM is active)
+    This differs from the A320/A321 where both ceo families use kill=anim/NEO.
+
+    LEAP and PW neo objects use the same kill datarefs as the other aircraft:
+      - LEAP → anim/LEAP/kill
+      - PW   → anim/NEO/kill
+
+    Engine selection:
+      Option 1 - ceo only (CFM56 + IAE)
+      Option 2 - All engines (ceo + neo)
+    """
+
+    @property
+    def name(self) -> str:
+        return "A319"
+
+    @property
+    def stock_objects_to_remove(self) -> list[str]:
+        # A319 ceo-only: no stock neo objects exist.
+        return ["engines.obj", "blades.obj"]
+
+    @property
+    def option1_label(self) -> str:
+        return "CFM56 + IAE only  (ceo)"
+
+    @property
+    def option2_label(self) -> str:
+        return "All engines       (ceo + neo)"
+
+    def build_all_carda_objects(self) -> list[ACFObject]:
+        # CFM56-5B (ceo) - kill=anim/IAE (A319 mutual-exclusion)
+        cfm = [
+            ACFObject("CFM56/cfm56_l_engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/IAE", 0.0, 0.4, 20.7),
+            ACFObject("CFM56/cfm56_r_engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/IAE", 0.0, 0.4, 20.7),
+            ACFObject("CFM56/cfm56_n1.obj", FLAGS_PREFILL, "anim/IAE", 0.0, 0.4, 20.7),
+        ]
+
+        # IAE V2500 (ceo) - kill=anim/CFM (A319 mutual-exclusion)
+        iae = [
+            ACFObject("V2500/iae_l_engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/CFM", 0.0, 0.4, 20.7),
+            ACFObject("V2500/iae_r_engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/CFM", 0.0, 0.4, 20.7),
+            ACFObject("V2500/iae_n1.obj", FLAGS_PREFILL, "anim/CFM", 0.0, 0.4, 20.7),
+            ACFObject("V2500/particles/IAE-Particles.obj", FLAGS_PREFILL, "anim/CFM", 0.0, 0.0, 0.0),
+        ]
+
+        # LEAP-1A (neo) - kill=anim/LEAP/kill
+        leap = [
+            ACFObject("LEAP Engines/particles/LEAP-Particles.obj", FLAGS_NONE, "anim/LEAP/kill", 0.0, 0.0, 0.0),
+            ACFObject("LEAP Engines/LEAP_L_Engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/LEAP/kill", -19.0, -6.6, 41.7),
+            ACFObject("LEAP Engines/LEAP_N1_L.obj", FLAGS_PREFILL, "anim/LEAP/kill", -19.0, -6.6, 41.7),
+            ACFObject("LEAP Engines/LEAP_R_Engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/LEAP/kill", 19.0, -6.6, 41.7),
+            ACFObject("LEAP Engines/LEAP_N1_R.obj", FLAGS_PREFILL, "anim/LEAP/kill", 19.0, -6.6, 41.7),
+        ]
+
+        # PW1100G (neo) - kill=anim/NEO/kill
+        pw = [
+            ACFObject("PW Engines/particles/PW-Particles.obj", FLAGS_NONE, "anim/NEO/kill", 0.0, 0.0, 0.0),
+            ACFObject("PW Engines/PW_L_Engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/NEO/kill", -19.0, -6.6, 41.7),
+            ACFObject("PW Engines/PW_N1_L.obj", FLAGS_PREFILL, "anim/NEO/kill", -19.0, -6.6, 41.7),
+            ACFObject("PW Engines/PW_R_Engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/NEO/kill", 19.0, -6.6, 41.7),
+            ACFObject("PW Engines/PW_N1_R.obj", FLAGS_PREFILL, "anim/NEO/kill", 19.0, -6.6, 41.7),
+        ]
+
+        return cfm + iae + leap + pw
+
+    def filter_option1(self, all_objects, all_engine_objs):
+        # ceo only: exclude LEAP and PW objects.
+        return (
+            [o for o in all_objects if not o.file_stl.startswith(("LEAP", "PW"))],
+            [p for p in all_engine_objs if not p.startswith(("LEAP", "PW"))],
+        )
+
+
+class A320Config(AircraftConfig):
+    """Configuration for the ToLiss A320.
+
+    The A320 has both ceo and neo stock engine objects.  Five stock objects
+    must be removed: engines.obj, blades.obj, neo.obj, LEAP1A.obj,
+    leapfast.obj.
+
+    There are no dedicated ToLiss A320 Carda mod files - this installer
+    uses the ToLiss A321 Carda mod files, as the A320 and A321 are
+    structurally identical in terms of engine OBJs and datarefs.
+
+    Kill datarefs (same as A321):
+      - CFM56 objects use kill=anim/NEO  (hidden when a neo variant is active)
+      - IAE   objects use kill=anim/NEO  (same - both ceo families hide together)
+      - LEAP  objects use kill=anim/LEAP/kill
+      - PW    objects use kill=anim/NEO/kill
+
+    Engine selection (neo-first, since the A320 ships as neo by default):
+      Option 1 - neo only (LEAP + PW)
+      Option 2 - All engines (neo + ceo)
+    """
+
+    @property
+    def name(self) -> str:
+        return "A320"
+
+    @property
+    def stock_objects_to_remove(self) -> list[str]:
+        return ["engines.obj", "blades.obj", "neo.obj", "LEAP1A.obj", "leapfast.obj"]
+
+    @property
+    def option1_label(self) -> str:
+        return "LEAP + PW only    (neo)"
+
+    @property
+    def option2_label(self) -> str:
+        return "All engines       (neo + ceo)"
+
+    def build_all_carda_objects(self) -> list[ACFObject]:
+        # CFM56-5B (ceo) - kill=anim/NEO
+        cfm = [
+            ACFObject("CFM56/cfm56_l_engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/NEO", 0.0, 0.4, 20.7),
+            ACFObject("CFM56/cfm56_r_engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/NEO", 0.0, 0.4, 20.7),
+            ACFObject("CFM56/cfm56_n1.obj", FLAGS_PREFILL, "anim/NEO", 0.0, 0.4, 20.7),
+        ]
+
+        # IAE V2500 (ceo) - kill=anim/NEO
+        iae = [
+            ACFObject("V2500/iae_l_engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/NEO", 0.0, 0.4, 20.7),
+            ACFObject("V2500/iae_r_engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/NEO", 0.0, 0.4, 20.7),
+            ACFObject("V2500/iae_n1.obj", FLAGS_PREFILL, "anim/NEO", 0.0, 0.4, 20.7),
+            ACFObject("V2500/particles/IAE-Particles.obj", FLAGS_PREFILL, "anim/NEO", 0.0, 0.0, 0.0),
+        ]
+
+        # LEAP-1A (neo) - kill=anim/LEAP/kill
+        leap = [
+            ACFObject("LEAP Engines/particles/LEAP-Particles.obj", FLAGS_NONE, "anim/LEAP/kill", 0.0, 0.0, 0.0),
+            ACFObject("LEAP Engines/LEAP_L_Engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/LEAP/kill", -19.0, -6.6, 41.7),
+            ACFObject("LEAP Engines/LEAP_N1_L.obj", FLAGS_PREFILL, "anim/LEAP/kill", -19.0, -6.6, 41.7),
+            ACFObject("LEAP Engines/LEAP_R_Engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/LEAP/kill", 19.0, -6.6, 41.7),
+            ACFObject("LEAP Engines/LEAP_N1_R.obj", FLAGS_PREFILL, "anim/LEAP/kill", 19.0, -6.6, 41.7),
+        ]
+
+        # PW1100G (neo) - kill=anim/NEO/kill
+        pw = [
+            ACFObject("PW Engines/particles/PW-Particles.obj", FLAGS_NONE, "anim/NEO/kill", 0.0, 0.0, 0.0),
+            ACFObject("PW Engines/PW_L_Engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/NEO/kill", -19.0, -6.6, 41.7),
+            ACFObject("PW Engines/PW_N1_L.obj", FLAGS_PREFILL, "anim/NEO/kill", -19.0, -6.6, 41.7),
+            ACFObject("PW Engines/PW_R_Engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/NEO/kill", 19.0, -6.6, 41.7),
+            ACFObject("PW Engines/PW_N1_R.obj", FLAGS_PREFILL, "anim/NEO/kill", 19.0, -6.6, 41.7),
+        ]
+
+        return cfm + iae + leap + pw
+
+    def filter_option1(self, all_objects, all_engine_objs):
+        # neo only: exclude CFM56 and V2500 (ceo) objects.
+        return (
+            [o for o in all_objects if not o.file_stl.startswith(("CFM56", "V2500"))],
+            [p for p in all_engine_objs if not p.startswith(("CFM56", "V2500"))],
+        )
+
+
+class A321Config(AircraftConfig):
+    """Configuration for the ToLiss A321.
+
+    The A321 has both ceo and neo stock engine objects.  Five stock objects
+    must be removed: engines.obj, blades.obj, neo.obj, LEAP1A.obj,
+    leapfast.obj.
+
+    Kill datarefs:
+      - CFM56 objects use kill=anim/NEO  (hidden when a neo variant is active)
+      - IAE   objects use kill=anim/NEO  (same - both ceo families hide together)
+      - LEAP  objects use kill=anim/LEAP/kill
+      - PW    objects use kill=anim/NEO/kill
+
+    Engine selection (ceo-first, since the A321 ships as ceo by default):
+      Option 1 - ceo only (CFM56 + IAE)
+      Option 2 - All engines (ceo + neo)
+    """
+
+    @property
+    def name(self) -> str:
+        return "A321"
+
+    @property
+    def stock_objects_to_remove(self) -> list[str]:
+        return ["engines.obj", "blades.obj", "neo.obj", "LEAP1A.obj", "leapfast.obj"]
+
+    @property
+    def option1_label(self) -> str:
+        return "CFM56 + IAE only  (ceo)"
+
+    @property
+    def option2_label(self) -> str:
+        return "All engines       (ceo + neo)"
+
+    def build_all_carda_objects(self) -> list[ACFObject]:
+        # CFM56-5B (ceo) - kill=anim/NEO
+        cfm = [
+            ACFObject("CFM56/cfm56_l_engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/NEO", 0.0, 0.4, 20.7),
+            ACFObject("CFM56/cfm56_r_engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/NEO", 0.0, 0.4, 20.7),
+            ACFObject("CFM56/cfm56_n1.obj", FLAGS_PREFILL, "anim/NEO", 0.0, 0.4, 20.7),
+        ]
+
+        # IAE V2500 (ceo) - kill=anim/NEO
+        iae = [
+            ACFObject("V2500/iae_l_engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/NEO", 0.0, 0.4, 20.7),
+            ACFObject("V2500/iae_r_engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/NEO", 0.0, 0.4, 20.7),
+            ACFObject("V2500/iae_n1.obj", FLAGS_PREFILL, "anim/NEO", 0.0, 0.4, 20.7),
+            ACFObject("V2500/particles/IAE-Particles.obj", FLAGS_PREFILL, "anim/NEO", 0.0, 0.0, 0.0),
+        ]
+
+        # LEAP-1A (neo) - kill=anim/LEAP/kill
+        leap = [
+            ACFObject("LEAP Engines/particles/LEAP-Particles.obj", FLAGS_NONE, "anim/LEAP/kill", 0.0, 0.0, 0.0),
+            ACFObject("LEAP Engines/LEAP_L_Engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/LEAP/kill", -19.0, -6.6, 41.7),
+            ACFObject("LEAP Engines/LEAP_N1_L.obj", FLAGS_PREFILL, "anim/LEAP/kill", -19.0, -6.6, 41.7),
+            ACFObject("LEAP Engines/LEAP_R_Engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/LEAP/kill", 19.0, -6.6, 41.7),
+            ACFObject("LEAP Engines/LEAP_N1_R.obj", FLAGS_PREFILL, "anim/LEAP/kill", 19.0, -6.6, 41.7),
+        ]
+
+        # PW1100G (neo) - kill=anim/NEO/kill
+        pw = [
+            ACFObject("PW Engines/particles/PW-Particles.obj", FLAGS_NONE, "anim/NEO/kill", 0.0, 0.0, 0.0),
+            ACFObject("PW Engines/PW_L_Engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/NEO/kill", -19.0, -6.6, 41.7),
+            ACFObject("PW Engines/PW_N1_L.obj", FLAGS_PREFILL, "anim/NEO/kill", -19.0, -6.6, 41.7),
+            ACFObject("PW Engines/PW_R_Engine.obj", FLAGS_ALL_VIEWS_HIRES, "anim/NEO/kill", 19.0, -6.6, 41.7),
+            ACFObject("PW Engines/PW_N1_R.obj", FLAGS_PREFILL, "anim/NEO/kill", 19.0, -6.6, 41.7),
+        ]
+
+        return cfm + iae + leap + pw
+
+    def filter_option1(self, all_objects, all_engine_objs):
+        # ceo only: exclude LEAP and PW (neo) objects.
+        return (
+            [o for o in all_objects if not o.file_stl.startswith(("LEAP", "PW"))],
+            [p for p in all_engine_objs if not p.startswith(("LEAP", "PW"))],
+        )
+
+
+# Map of CLI arg / prompt key → config class.
+AIRCRAFT_CONFIGS: dict[str, type[AircraftConfig]] = {
+    "a319": A319Config,
+    "a320": A320Config,
+    "a321": A321Config,
+}
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -547,35 +717,61 @@ class OBJEditor:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Carda ACF/OBJ editor - run from the ToLiss A319 folder"
+        description="Carda ACF/OBJ editor for ToLiss A319 / A320 / A321"
     )
     parser.add_argument(
         "--aircraft-dir",
         type=Path,
         default=Path.cwd(),
-        help="Path to the ToLiss A319 aircraft folder (default: current directory)",
+        help="Path to the ToLiss aircraft folder (default: current directory)",
+    )
+    parser.add_argument(
+        "--aircraft",
+        choices=["a319", "a320", "a321"],
+        default=None,
+        help="Aircraft type (skips interactive prompt)",
     )
     parser.add_argument(
         "--engines",
         type=int,
         choices=[1, 2],
         default=None,
-        help="Engine selection: 1=CFM+IAE only, 2=All (skips interactive prompt)",
+        help="Engine selection: 1=partial, 2=all (skips interactive prompt)",
     )
     args = parser.parse_args()
     aircraft_dir: Path = args.aircraft_dir.resolve()
 
     print("=" * 60)
-    print(" Carda Engine Mod - ACF/OBJ Editor (A319) v1.1r1")
+    print(" Carda Engine Mod - ACF/OBJ Editor v2.0r1")
     print("=" * 60)
 
-      # ── Engine family selection ──
+    # ── Aircraft selection ──
+    if args.aircraft is not None:
+        aircraft_key = args.aircraft
+    else:
+        print("\nWhich aircraft are you installing for?")
+        print("  1 - ToLiss A319")
+        print("  2 - ToLiss A320")
+        print("  3 - ToLiss A321")
+        while True:
+            raw = input("\nEnter 1, 2, or 3: ").strip()
+            if raw in ("1", "2", "3"):
+                aircraft_key = {"1": "a319", "2": "a320", "3": "a321"}[raw]
+                break
+            print("  Invalid choice. Please enter 1, 2, or 3.")
+
+    config = AIRCRAFT_CONFIGS[aircraft_key]()
+    all_carda_objects = config.build_all_carda_objects()
+
+    print(f"\nAircraft: {config.name}")
+
+    # ── Engine family selection ──
     if args.engines is not None:
         selection = args.engines
     else:
         print("\nWhich engines do you want to install?")
-        print("  1 - CFM56 + IAE only  (CEO)")
-        print("  2 - All engines       (CEO + NEO)")
+        print(f"  1 - {config.option1_label}")
+        print(f"  2 - {config.option2_label}")
         while True:
             raw = input("\nEnter 1 or 2: ").strip()
             if raw in ("1", "2"):
@@ -584,21 +780,23 @@ def main():
             print("  Invalid choice. Please enter 1 or 2.")
 
     if selection == 1:
-        label = "CFM56 + IAE only (CEO)"
-        active_engine_objs = [p for p in CARDA_ENGINE_OBJS if not p.startswith(("LEAP", "PW"))]
-        active_carda_objects = [o for o in ALL_CARDA_OBJECTS if not o.file_stl.startswith(("LEAP", "PW"))]
+        label = config.option1_label
+        active_carda_objects, active_engine_objs = config.filter_option1(
+            all_carda_objects, CARDA_ENGINE_OBJS
+        )
     else:
-        label = "All engines (CEO + NEO)"
-        active_engine_objs = CARDA_ENGINE_OBJS
-        active_carda_objects = ALL_CARDA_OBJECTS
+        label = config.option2_label
+        active_carda_objects, active_engine_objs = config.filter_option2(
+            all_carda_objects, CARDA_ENGINE_OBJS
+        )
 
-    print(f"\nEngine selection: {label}")
+    print(f"Engine selection: {label}")
 
     # Validate: must contain *.acf files
     acf_files = sorted(aircraft_dir.glob("*.acf"))
     if not acf_files:
         print(f"\nERROR: No .acf files found in {aircraft_dir}")
-        print("Run this script from the ToLiss A319 aircraft folder,")
+        print(f"Run this script from the ToLiss {config.name} aircraft folder,")
         print("or use --aircraft-dir to specify the path.")
         sys.exit(1)
 
@@ -640,7 +838,7 @@ def main():
 
     # Always purge all known Carda filenames so switching between options
     # on a re-run doesn't leave stale objects from a previous install.
-    all_carda_filenames = [obj.file_stl for obj in ALL_CARDA_OBJECTS]
+    all_carda_filenames = [obj.file_stl for obj in all_carda_objects]
     active_carda_filenames = {o.file_stl for o in active_carda_objects}
 
     for acf_path in acf_files:
@@ -648,16 +846,22 @@ def main():
         editor = ACFEditor(acf_path)
 
         removed, _already = editor.remove_and_add_objects(
-            filenames_to_remove=STOCK_OBJECTS_TO_REMOVE + all_carda_filenames,
+            filenames_to_remove=config.stock_objects_to_remove + all_carda_filenames,
             objects_to_add=active_carda_objects,
         )
-        stock_removed = [n for n in removed if n in STOCK_OBJECTS_TO_REMOVE]
-        carda_refreshed = [n for n in removed if n in active_carda_filenames]  # correcting the counter
-        stale_removed = [n for n in removed if n in all_carda_filenames and n not in active_carda_filenames]
+        stock_removed = [n for n in removed if n in config.stock_objects_to_remove]
+        carda_refreshed = [n for n in removed if n in active_carda_filenames]
+        stale_removed = [
+            n
+            for n in removed
+            if n in all_carda_filenames and n not in active_carda_filenames
+        ]
         if stock_removed:
             print(f"    Removed stock: {', '.join(stock_removed)}")
         if stale_removed:
-            print(f"    Cleaned up {len(stale_removed)} stale object(s) from previous install")
+            print(
+                f"    Cleaned up {len(stale_removed)} stale object(s) from previous install"
+            )
         if carda_refreshed:
             print(f"    Refreshed {len(carda_refreshed)} existing Carda object(s)")
         else:

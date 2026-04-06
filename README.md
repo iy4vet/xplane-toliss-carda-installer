@@ -1,6 +1,6 @@
-# Carda Engine Mod Installer for ToLiss A319 / A321 v1.1r1
+# Carda Engine Mod Installer for ToLiss A319 / A320 / A321 v2.0r1
 
-Installer script for the [Carda engine mods](https://forum.thresholdx.net/profile/3927-cardajowol/) on the ToLiss A319 and A321 (CEO and NEO) in X-Plane. Handles all `.acf` and `.obj` edits so you don't have to do them by hand.
+Installer script for the [Carda engine mods](https://forum.thresholdx.net/profile/3927-cardajowol/) on the ToLiss A319, A320 (neo and ceo), and A321 (ceo and neo) in X-Plane. Handles all `.acf` and `.obj` edits so you don't have to do them by hand.
 
 ## What the installer does
 
@@ -46,7 +46,7 @@ IAE-V2500-Toliss321-1.1/
 For each of the extracted mods:
 
 1. Open the mod's **base folder** (e.g. `A321 Base Folder/` or `A319 Base Folder/`).
-2. Copy (merge) the `objects/` folder inside it into your ToLiss aircraft directory so the engine subfolders end up at:
+2. Copy (merge) the `objects/` folder inside it into your ToLiss aircraft directory so the engine subfolders end up at, e.g.:
 
    ```txt
    Airbus A321 (ToLiss)/objects/CFM56/
@@ -65,46 +65,52 @@ Repeat for all four engine packs (LEAP-1A, PW1100G, CFM56, V2500).
 
 Download the binary for your OS from the [Releases](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/) page:
 
-| Platform | A319 | A321 |
-| -------- | ---- | ---- |
-| Windows x64 | [`install-carda-a319-windows-x64.exe`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-a319-windows-x64.exe) | [`install-carda-a321-windows-x64.exe`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-a321-windows-x64.exe) |
-| Windows ARM64 | [`install-carda-a319-windows-arm64.exe`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-a319-windows-arm64.exe) | [`install-carda-a321-windows-arm64.exe`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-a321-windows-arm64.exe) |
-| macOS Apple Silicon | [`install-carda-a319-macos-arm64`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-a319-macos-arm64) | [`install-carda-a321-macos-arm64`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-a321-macos-arm64) |
-| macOS Intel | [`install-carda-a319-macos-x64`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-a319-macos-x64) | [`install-carda-a321-macos-x64`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-a321-macos-x64) |
-| Linux x64 | [`install-carda-a319-linux-x64`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-a319-linux-x64) | [`install-carda-a321-linux-x64`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-a321-linux-x64) |
-| Linux ARM64 | [`install-carda-a319-linux-arm64`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-a319-linux-arm64) | [`install-carda-a321-linux-arm64`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-a321-linux-arm64) |
+| Platform | Binary |
+| -------- | ------ |
+| Windows x64 | [`install-carda-windows-x64.exe`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-windows-x64.exe) |
+| Windows ARM64 | [`install-carda-windows-arm64.exe`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-windows-arm64.exe) |
+| macOS Apple Silicon | [`install-carda-macos-arm64`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-macos-arm64) |
+| macOS Intel | [`install-carda-macos-x64`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-macos-x64) |
+| Linux x64 | [`install-carda-linux-x64`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-linux-x64) |
+| Linux ARM64 | [`install-carda-linux-arm64`](https://github.com/iy4vet/xplane-toliss-carda-installer/releases/latest/download/install-carda-linux-arm64) |
 
 Place the binary inside your aircraft folder. On Windows, just double-click the `.exe`. On macOS/Linux you may need to make it executable first:
 
 ```bash
 # Example (A321, Linux):
 cd "/path/to/Airbus A321 (ToLiss)"
-chmod +x install-carda-a321-linux-x64
-./install-carda-a321-linux-x64
+chmod +x install-carda-linux-x64
+./install-carda-linux-x64
 ```
+
+The installer will ask which aircraft (A319 / A320 / A321) and which engines to install.
 
 ### Option B: Run with Python
 
 Requires Python 3.10+. No external dependencies.
 
-Place the appropriate `.py` script in your aircraft folder and run:
+Place `install_carda.py` in your aircraft folder and run:
 
 ```bash
 cd "/path/to/Airbus A321 (ToLiss)"
-python install_carda_a321.py
+python install_carda.py
 ```
 
 Or point to the aircraft folder from anywhere:
 
 ```bash
-python install_carda_a321.py --aircraft-dir "/path/to/Airbus A321 (ToLiss)"
+python install_carda.py --aircraft-dir "/path/to/Airbus A321 (ToLiss)"
 ```
 
-Use `install_carda_a319.py` for the A319 and `install_carda_a321.py` for the A321.
+For fully non-interactive use (e.g. scripting), pass `--aircraft` and `--engines`:
+
+```bash
+python install_carda.py --aircraft a321 --engines 2 --aircraft-dir "/path/to/Airbus A321 (ToLiss)"
+```
 
 ## Credits and Licensing
 
-This project is licensed under the GNU GPL v2.
+This project is licensed under the GNU GPL v3.
 
 Any contributions (features or bugfixes) are very welcome :grin:. [Here's the project GitHub](https://github.com/iy4vet/xplane-toliss-carda-installer).
 
@@ -114,19 +120,21 @@ A huge thank-you to these awesome people:
 
 - [Carda (Threshold Forums)](https://forum.thresholdx.net/profile/3927-cardajowol/) - original engine mod models and textures.
 - [@Chris E](https://forums.x-plane.org/profile/640915-chris-e/) - dataref fixes for ToLiss compatibility (original [A321 fix](https://forums.x-plane.org/files/file/89257-carda-engines-mod-fix-for-toliss-a321/) and [A319 fix](https://forums.x-plane.org/files/file/93205-carda-engines-mod-fix-for-toliss-a319/)). With their permission, I've included their fixes in this script. They were: correcting N1 speed and fan rotation datarefs from stock X-Plane paths to the AirbusFBW equivalents used by ToLiss, and fixing the LEAP blade rotation axis direction.
-- [alexvor20](https://github.com/alexvor20) - CEO-only install option.
+- [alexvor20](https://github.com/alexvor20)
+- [@SGFSYT](https://forums.x-plane.org/profile/1009231-sgfsyt/)
 
 ## Changelog
 
-- **1.1r1** - Add: CEO-only install option
+- **2.0r1** - Add: A320neo/ceo install; unified script with interactive aircraft selection
+- **1.1r1** - Add: ceo-only install option
 - **1.0r1** - Initial release
 
 ## What's Planned
 
-The most obvious one - the [A320neo](https://toliss.com/pages/a320-neo) and [A320ceo](https://toliss.com/pages/a320-ceo). There's a good chance the A319 version works for the A320, but I can't test it myself.
+I'm looking at integrating the [wing mod](https://forums.x-plane.org/files/file/88518-toliss-a319-a320-and-a321-wing-enhancement-mod/) and [gear compression mod](https://www.reddit.com/r/Xplane/comments/1iki7mw/modified_gear_suspension_for_toliss_a32021). Let me know if you'd like to see these added!
 
-I'd like to also develop scripts for the [A340-600](https://toliss.com/pages/a340-600) and [A330-900 neo](https://toliss.com/pages/a330-900) in the future.
+Also in the Carda line, I could look at the FF A320, 757, and 767. Since I don't own these, it's difficult for me to develop installers. Do message me if you're willing to help!
 
-Doing non-ToLiss Aircraft is also in the cards! :grin:
+Maybe also the [A340-600](https://toliss.com/pages/a340-600) and [A330-900 neo](https://toliss.com/pages/a330-900) (though with non-Carda engines).
 
 If there's anything you'd like to see added, send me a message or create a pull request on GitHub!

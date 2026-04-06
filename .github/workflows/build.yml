@@ -45,31 +45,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Build A319 installer
+      - name: Build installer
         run: >
           pyinstaller
           --onefile
-          --name "install-carda-a319-${{ matrix.label }}"
-          install_carda_a319.py
+          --name "install-carda-${{ matrix.label }}"
+          install_carda.py
 
-      - name: Build A321 installer
-        run: >
-          pyinstaller
-          --onefile
-          --name "install-carda-a321-${{ matrix.label }}"
-          install_carda_a321.py
-
-      - name: Upload A319 artefact
+      - name: Upload artefact
         uses: actions/upload-artifact@v4
         with:
-          name: install-carda-a319-${{ matrix.label }}
-          path: dist/install-carda-a319-${{ matrix.label }}*
-
-      - name: Upload A321 artefact
-        uses: actions/upload-artifact@v4
-        with:
-          name: install-carda-a321-${{ matrix.label }}
-          path: dist/install-carda-a321-${{ matrix.label }}*
+          name: install-carda-${{ matrix.label }}
+          path: dist/install-carda-${{ matrix.label }}*
 
   release:
     needs: build
