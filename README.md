@@ -135,6 +135,7 @@ A huge thank-you to these awesome people:
 
 ## Changelog
 
+- **2.1r1** - Fix: macOS binaries not finding the .acf files when launched from Finder (they now also look in the folder the installer sits in)
 - **2.0r1** - Add: A320neo/ceo install; unified script with interactive aircraft selection
 - **1.1r1** - Add: ceo-only install option
 - **1.0r1** - Initial release
