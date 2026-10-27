@@ -142,7 +142,7 @@ A huge thank-you to these awesome people:
 
 ## What's Planned
 
-I'm looking at integrating the [wing mod](https://forums.x-plane.org/files/file/88518-toliss-a319-a320-and-a321-wing-enhancement-mod/) and [gear compression mod](https://www.reddit.com/r/Xplane/comments/1iki7mw/modified_gear_suspension_for_toliss_a32021). Let me know if you'd like to see these added!
+I'm looking at integrating or creating a new installer for the [gear compression mod](https://www.reddit.com/r/Xplane/comments/1iki7mw/modified_gear_suspension_for_toliss_a32021). Let me know if you'd like to see this!
 
 Also in the Carda line, I could look at the FF A320, 757, and 767. Since I don't own these, it's difficult for me to develop installers. Do message me if you're willing to help!
 
