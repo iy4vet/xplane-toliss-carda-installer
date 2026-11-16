@@ -67,6 +67,10 @@ FLAGS_NONE = 0
 FLAGS_PREFILL = 4
 FLAGS_ALL_VIEWS_HIRES = 24
 
+# Mod-specific backup suffix, so a backup is never skipped because of (and
+# never mistaken for) another mod's or SkunkCraftsUpdater's own *.bak.
+BACKUP_SUFFIX = ".carda.bak"
+
 # Carda engine OBJ files (relative to objects/) that need Toliss dataref fixes.
 #
 # ceo engines (CFM56-5B, IAE V2500): N1 speed dataref only.
@@ -451,6 +455,18 @@ def format_float32(val: float) -> str:
     return f"{unpacked:.9f}"
 
 
+def _backup(filepath: Path) -> bool:
+    """Back up a file before its first edit.
+
+    Returns True if a backup was written, False if an existing one was kept.
+    """
+    bak = filepath.with_name(filepath.name + BACKUP_SUFFIX)
+    if bak.exists():
+        return False
+    shutil.copy2(filepath, bak)
+    return True
+
+
 # ─── ACF Editor ───────────────────────────────────────────────────────────────
 
 
@@ -489,11 +505,9 @@ class ACFEditor:
             else:
                 self._header_lines.append(line)
 
-    def save(self, backup: bool = True):
-        if backup:
-            bak = self.filepath.with_suffix(self.filepath.suffix + ".bak")
-            if not bak.exists():
-                shutil.copy2(self.filepath, bak)
+    def save(self, backup: bool = True) -> bool:
+        """Write the ACF. Returns True if a backup was written."""
+        wrote_backup = backup and _backup(self.filepath)
 
         sorted_keys = sorted(self._properties.keys())
         with open(self.filepath, "w", encoding="utf-8", newline="\n") as f:
@@ -503,6 +517,8 @@ class ACFEditor:
                 f.write(f"P {key} {self._properties[key]}\n")
             for line in self._footer_lines:
                 f.write(line)
+
+        return wrote_backup
 
     def get_obja_entries(self) -> dict[int, dict[str, str]]:
         entries: dict[int, dict[str, str]] = {}
@@ -634,9 +650,7 @@ class OBJEditor:
         new_content, count = cls._PATTERN.subn(r"\1none", content)
 
         if count > 0 and not dry_run:
-            bak = filepath.with_suffix(filepath.suffix + ".bak")
-            if not bak.exists():
-                shutil.copy2(filepath, bak)
+            _backup(filepath)
             with open(filepath, "w", encoding="utf-8", newline="\n") as f:
                 f.write(new_content)
 
@@ -690,9 +704,7 @@ class OBJEditor:
             count += c
 
         if content != original and not dry_run:
-            bak = filepath.with_suffix(filepath.suffix + ".bak")
-            if not bak.exists():
-                shutil.copy2(filepath, bak)
+            _backup(filepath)
             with open(filepath, "w", encoding="utf-8", newline="\n") as f:
                 f.write(content)
 
@@ -761,7 +773,7 @@ def main():
     aircraft_dir: Path = args.aircraft_dir.resolve()
 
     print("=" * 60)
-    print(" Carda Engine Mod - ACF/OBJ Editor v2.1r1")
+    print(" Carda Engine Mod - ACF/OBJ Editor v2.2r1")
     print("=" * 60)
 
     # ── Aircraft selection ──
@@ -886,8 +898,10 @@ def main():
         else:
             print(f"    Added {len(active_carda_objects)} Carda object(s)")
         print(f"    Total object count: {editor.get_obja_count()}")
-        editor.save(backup=True)
-        print(f"    Saved (backup: {acf_path.name}.bak)")
+        if editor.save(backup=True):
+            print(f"    Saved (backup: {acf_path.name}{BACKUP_SUFFIX})")
+        else:
+            print(f"    Saved (kept existing backup: {acf_path.name}{BACKUP_SUFFIX})")
 
     print("\n" + "=" * 60)
     print(" Done!")

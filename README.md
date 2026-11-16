@@ -1,4 +1,4 @@
-# Carda Engine Mod Installer for ToLiss A319 / A320 / A321 v2.1r1
+# Carda Engine Mod Installer for ToLiss A319 / A320 / A321 v2.2r1
 
 Installer script for the [Carda engine mods](https://forum.thresholdx.net/profile/3927-cardajowol/) on the ToLiss A319, A320 (neo and ceo), and A321 (ceo and neo) in X-Plane. Handles all `.acf` and `.obj` edits so you don't have to do them by hand.
 
@@ -13,7 +13,7 @@ Installer script for the [Carda engine mods](https://forum.thresholdx.net/profil
    - Corrects the LEAP blade rotation Y-axis direction (flips `-1` → `1`).
 3. **Edits all `.acf` files** - removes the stock engine objects and adds the 17 Carda replacement objects with the correct positions, shadow modes, and kill datarefs.
 
-Backups (`.bak`) are created automatically before any file is modified.
+Backups (`.carda.bak`) are created automatically before any file is modified. To revert, delete the modified file and rename its `.carda.bak` back to the original name (e.g. `a321.acf.carda.bak` → `a321.acf`).
 
 ## Step 1 - Download the Carda engine mods
 
@@ -135,6 +135,7 @@ A huge thank-you to these awesome people:
 
 ## Changelog
 
+- **2.2r1** - Fix: backups are now named `.carda.bak`, so an existing `.bak` from another mod or SkunkCraftsUpdater no longer silently stops the installer from making its own. If you installed with an earlier version, your stock backups are the old `.bak` files - restore those before re-running if you want the new `.carda.bak` backups to be stock too
 - **2.1r1** - Fix: macOS binaries not finding the .acf files when launched from Finder (they now also look in the folder the installer sits in)
 - **2.0r1** - Add: A320neo/ceo install; unified script with interactive aircraft selection
 - **1.1r1** - Add: ceo-only install option
